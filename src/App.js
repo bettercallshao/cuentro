@@ -7,20 +7,67 @@ const usePreview = () => {
     const engine = new BABYLON.Engine(canvas, true);
     const scene = new BABYLON.Scene(engine);
 
-    const camera = new BABYLON.FreeCamera(
+    const camera = new BABYLON.ArcRotateCamera(
       "camera0",
-      new BABYLON.Vector3(0, 5, -10),
+      0,
+      0,
+      3,
+      new BABYLON.Vector3(0.5, 0.5, 0.5),
       scene
     );
-    camera.setTarget(BABYLON.Vector3.Zero());
     camera.attachControl(canvas, true);
 
-    new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 0, 0), scene);
-    BABYLON.MeshBuilder.CreateSphere(
-      "sphere",
-      { diameter: 2, segments: 4 },
+    scene.ambientColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+
+    const zLight = new BABYLON.HemisphericLight(
+      "light",
+      new BABYLON.Vector3(0, 0, 1),
       scene
     );
+    zLight.intensity = 0.1;
+    const xLight = new BABYLON.HemisphericLight(
+      "light",
+      new BABYLON.Vector3(1, 0, 0),
+      scene
+    );
+    xLight.intensity = 0.1;
+
+    const front = BABYLON.MeshBuilder.CreatePlane(
+      "front",
+      { size: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
+      scene
+    );
+    front.position.x = 0.5;
+    front.position.y = 0.5;
+
+    const right = front.clone("right");
+    right.rotate(BABYLON.Axis.Y, Math.PI / 2, BABYLON.Space.WORLD);
+    right.translate(BABYLON.Axis.X, -0.5, BABYLON.Space.WORLD);
+    right.translate(BABYLON.Axis.Z, 0.5, BABYLON.Space.WORLD);
+
+    const bottom = front.clone("bottom");
+    bottom.rotate(BABYLON.Axis.X, Math.PI / 2, BABYLON.Space.WORLD);
+    bottom.translate(BABYLON.Axis.Y, -0.5, BABYLON.Space.WORLD);
+    bottom.translate(BABYLON.Axis.Z, 0.5, BABYLON.Space.WORLD);
+
+    const colorMat = (r, g, b) => {
+      const mat = new BABYLON.StandardMaterial(`mat-${r}-${g}-${b}`, scene);
+      mat.ambientColor = new BABYLON.Color3(r, g, b);
+      return mat;
+    };
+
+    front.material = colorMat(0, 0, 1);
+    right.material = colorMat(0, 1, 0);
+    bottom.material = colorMat(1, 0, 0);
+
+    const obj = BABYLON.MeshBuilder.CreateSphere(
+      "obj",
+      { diameter: 0.1 },
+      scene
+    );
+    obj.position.x = 0.5;
+    obj.position.y = 0.5;
+    obj.position.z = 0.5;
 
     engine.runRenderLoop(() => {
       scene.render();
