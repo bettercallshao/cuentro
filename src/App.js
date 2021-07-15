@@ -1,8 +1,8 @@
 import * as BABYLON from "babylonjs";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const usePreview = () => {
-  const init = useCallback((ref) => {
+  const init = (ref) => {
     const canvas = ref.current;
     const engine = new BABYLON.Engine(canvas, true);
     const scene = new BABYLON.Scene(engine);
@@ -19,18 +19,27 @@ const usePreview = () => {
 
     scene.ambientColor = new BABYLON.Color3(0.5, 0.5, 0.5);
 
-    const zLight = new BABYLON.HemisphericLight(
-      "light",
-      new BABYLON.Vector3(0, 0, 1),
-      scene
-    );
-    zLight.intensity = 0.1;
-    const xLight = new BABYLON.HemisphericLight(
-      "light",
-      new BABYLON.Vector3(1, 0, 0),
-      scene
-    );
-    xLight.intensity = 0.1;
+    // const zLight = new BABYLON.HemisphericLight(
+    //   "light",
+    //   new BABYLON.Vector3(0, 0, 1),
+    //   scene
+    // );
+    // zLight.intensity = 0.1;
+    // const xLight = new BABYLON.HemisphericLight(
+    //   "light",
+    //   new BABYLON.Vector3(1, 0, 0),
+    //   scene
+    // );
+    // xLight.intensity = 0.1;
+    //
+    // const obj = BABYLON.MeshBuilder.CreateSphere(
+    //   "obj",
+    //   { diameter: 0.1 },
+    //   scene
+    // );
+    // obj.position.x = 0.5;
+    // obj.position.y = 0.5;
+    // obj.position.z = 0.5;
 
     const front = BABYLON.MeshBuilder.CreatePlane(
       "front",
@@ -53,26 +62,67 @@ const usePreview = () => {
     const colorMat = (r, g, b) => {
       const mat = new BABYLON.StandardMaterial(`mat-${r}-${g}-${b}`, scene);
       mat.ambientColor = new BABYLON.Color3(r, g, b);
+      mat.alpha = 0.65;
       return mat;
     };
 
     front.material = colorMat(0, 0, 1);
     right.material = colorMat(0, 1, 0);
-    bottom.material = colorMat(1, 0, 0);
+    bottom.material = colorMat(0.5, 0.5, 0.5);
 
-    const obj = BABYLON.MeshBuilder.CreateSphere(
-      "obj",
-      { diameter: 0.1 },
-      scene
-    );
-    obj.position.x = 0.5;
-    obj.position.y = 0.5;
-    obj.position.z = 0.5;
+    let pState = "idle";
+    let pTarget = null;
+    let pFrom = null;
+    let pTo = null;
+
+    scene.onPointerObservable.add((pointerInfo) => {
+      if (
+        pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN &&
+        pointerInfo.pickInfo.hit &&
+        pState === "idle" &&
+        [front, right].includes(pointerInfo.pickInfo.pickedMesh)
+      ) {
+        pState = "active";
+        pTarget = pointerInfo.pickInfo.pickedMesh;
+        pFrom = pointerInfo.pickInfo.pickedPoint;
+        setTimeout(function () {
+          camera.detachControl(canvas);
+        }, 0);
+      } else if (
+        pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP &&
+        pState === "active"
+      ) {
+        let line = BABYLON.MeshBuilder.CreateTube(
+          pTarget.id + ".line",
+          { path: [pFrom, pTo], radius: 0.01, cap: BABYLON.Mesh.CAP_ALL },
+          scene
+        );
+        line.material = pTarget.material;
+
+        pState = "idle";
+        pTarget = null;
+        camera.attachControl(canvas, true);
+      } else if (
+        pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE &&
+        pState === "active"
+      ) {
+        let pickInfo = scene.pick(
+          scene.pointerX,
+          scene.pointerY,
+          function (mesh) {
+            return mesh == pTarget;
+          }
+        );
+        if (pickInfo.hit) {
+          pTo = pickInfo.pickedPoint;
+        }
+      }
+    });
 
     engine.runRenderLoop(() => {
       scene.render();
     });
-  });
+  };
 
   return [init];
 };
@@ -84,9 +134,6 @@ function App() {
 
   useEffect(() => {
     if (!canvas) return;
-
-    console.log(canvas.current);
-
     init(canvas);
   }, [canvas, init]);
 
