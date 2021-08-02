@@ -1,5 +1,5 @@
 import * as BABYLON from "babylonjs";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 const usePreview = () => {
   const init = (ref) => {
@@ -110,7 +110,7 @@ const usePreview = () => {
           scene.pointerX,
           scene.pointerY,
           function (mesh) {
-            return mesh == pTarget;
+            return mesh === pTarget;
           }
         );
         if (pickInfo.hit) {
