@@ -75,7 +75,7 @@ const usePreview = () => {
     let pTarget = null;
     let pFrom = null;
     let pTo = null;
-    let segs = {};
+    let segs = [];
 
     scene.onPointerObservable.add((pointerInfo) => {
       if (
@@ -102,7 +102,7 @@ const usePreview = () => {
             scene
           );
           seg.material = pTarget.material;
-          segs[seg] = pTarget;
+          segs.push(seg);
         }
         pState = "idle";
         pTarget = null;
@@ -123,9 +123,10 @@ const usePreview = () => {
         }
       } else if (
         pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN &&
-        segs[pointerInfo.pickInfo.pickedMesh]
+        segs.includes(pointerInfo.pickInfo.pickedMesh)
       ) {
-        delete segs[pointerInfo.pickInfo.pickedMesh];
+        const index = segs.indexOf(pointerInfo.pickInfo.pickedMesh);
+        segs.splice(index, 1);
         pointerInfo.pickInfo.pickedMesh.dispose();
       }
     });
