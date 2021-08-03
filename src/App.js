@@ -15,6 +15,7 @@ const usePreview = () => {
       new BABYLON.Vector3(0.5, 0.5, 0.5),
       scene
     );
+    camera.wheelPrecision = 100;
     camera.attachControl(canvas, true);
 
     scene.ambientColor = new BABYLON.Color3(0.5, 0.5, 0.5);
@@ -74,6 +75,7 @@ const usePreview = () => {
     let pTarget = null;
     let pFrom = null;
     let pTo = null;
+    let segs = {};
 
     scene.onPointerObservable.add((pointerInfo) => {
       if (
@@ -85,6 +87,7 @@ const usePreview = () => {
         pState = "active";
         pTarget = pointerInfo.pickInfo.pickedMesh;
         pFrom = pointerInfo.pickInfo.pickedPoint;
+        pTo = null;
         setTimeout(function () {
           camera.detachControl(canvas);
         }, 0);
@@ -92,13 +95,15 @@ const usePreview = () => {
         pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP &&
         pState === "active"
       ) {
-        let line = BABYLON.MeshBuilder.CreateTube(
-          pTarget.id + ".line",
-          { path: [pFrom, pTo], radius: 0.01, cap: BABYLON.Mesh.CAP_ALL },
-          scene
-        );
-        line.material = pTarget.material;
-
+        if (pTo) {
+          let seg = BABYLON.MeshBuilder.CreateTube(
+            pTarget.id + ".line",
+            { path: [pFrom, pTo], radius: 0.01, cap: BABYLON.Mesh.CAP_ALL },
+            scene
+          );
+          seg.material = pTarget.material;
+          segs[seg] = pTarget;
+        }
         pState = "idle";
         pTarget = null;
         camera.attachControl(canvas, true);
@@ -116,6 +121,12 @@ const usePreview = () => {
         if (pickInfo.hit) {
           pTo = pickInfo.pickedPoint;
         }
+      } else if (
+        pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN &&
+        segs[pointerInfo.pickInfo.pickedMesh]
+      ) {
+        delete segs[pointerInfo.pickInfo.pickedMesh];
+        pointerInfo.pickInfo.pickedMesh.dispose();
       }
     });
 
