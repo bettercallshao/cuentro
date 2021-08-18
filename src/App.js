@@ -1,5 +1,15 @@
 import * as BABYLON from "babylonjs";
 import { useEffect, useRef } from "react";
+import { v4 as uuid } from "uuid";
+
+const useBremner = () => {
+  const pvl = (p, t) => {
+    const vl = t.subtract(p);
+    const l = vl.length();
+    const v = vl.scale(1 / l);
+    return { p, v, l };
+  };
+};
 
 const usePreview = () => {
   const init = (ref) => {
@@ -16,9 +26,10 @@ const usePreview = () => {
       scene
     );
     camera.wheelPrecision = 100;
+    camera.setPosition(new BABYLON.Vector3(2, 0.5, 2));
     camera.attachControl(canvas, true);
 
-    scene.ambientColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+    scene.ambientColor = new BABYLON.Color3(1, 1, 1);
 
     // const zLight = new BABYLON.HemisphericLight(
     //   "light",
@@ -42,23 +53,23 @@ const usePreview = () => {
     // obj.position.y = 0.5;
     // obj.position.z = 0.5;
 
-    const front = BABYLON.MeshBuilder.CreatePlane(
-      "front",
+    const xy = BABYLON.MeshBuilder.CreatePlane(
+      "XY",
       { size: 1, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
       scene
     );
-    front.position.x = 0.5;
-    front.position.y = 0.5;
+    xy.position.x = 0.5;
+    xy.position.y = 0.5;
 
-    const right = front.clone("right");
-    right.rotate(BABYLON.Axis.Y, Math.PI / 2, BABYLON.Space.WORLD);
-    right.translate(BABYLON.Axis.X, -0.5, BABYLON.Space.WORLD);
-    right.translate(BABYLON.Axis.Z, 0.5, BABYLON.Space.WORLD);
+    const zy = xy.clone("ZY");
+    zy.rotate(BABYLON.Axis.Y, Math.PI / 2, BABYLON.Space.WORLD);
+    zy.translate(BABYLON.Axis.X, -0.5, BABYLON.Space.WORLD);
+    zy.translate(BABYLON.Axis.Z, 0.5, BABYLON.Space.WORLD);
 
-    const bottom = front.clone("bottom");
-    bottom.rotate(BABYLON.Axis.X, Math.PI / 2, BABYLON.Space.WORLD);
-    bottom.translate(BABYLON.Axis.Y, -0.5, BABYLON.Space.WORLD);
-    bottom.translate(BABYLON.Axis.Z, 0.5, BABYLON.Space.WORLD);
+    const xz = xy.clone("XZ");
+    xz.rotate(BABYLON.Axis.X, Math.PI / 2, BABYLON.Space.WORLD);
+    xz.translate(BABYLON.Axis.Y, -0.5, BABYLON.Space.WORLD);
+    xz.translate(BABYLON.Axis.Z, 0.5, BABYLON.Space.WORLD);
 
     const colorMat = (r, g, b) => {
       const mat = new BABYLON.StandardMaterial(`mat-${r}-${g}-${b}`, scene);
@@ -67,22 +78,22 @@ const usePreview = () => {
       return mat;
     };
 
-    front.material = colorMat(0, 0, 1);
-    right.material = colorMat(0, 1, 0);
-    bottom.material = colorMat(0.5, 0.5, 0.5);
+    xy.material = colorMat(1, 0, 0);
+    zy.material = colorMat(0, 1, 0);
+    xz.material = colorMat(0.5, 0.5, 0.5);
 
     let pState = "idle";
     let pTarget = null;
     let pFrom = null;
     let pTo = null;
-    let segs = [];
+    let segs = { [xy.name]: {}, [zy.name]: {} };
 
     scene.onPointerObservable.add((pointerInfo) => {
       if (
         pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN &&
         pointerInfo.pickInfo.hit &&
         pState === "idle" &&
-        [front, right].includes(pointerInfo.pickInfo.pickedMesh)
+        [xy, zy].includes(pointerInfo.pickInfo.pickedMesh)
       ) {
         pState = "active";
         pTarget = pointerInfo.pickInfo.pickedMesh;
@@ -96,13 +107,14 @@ const usePreview = () => {
         pState === "active"
       ) {
         if (pTo) {
-          let seg = BABYLON.MeshBuilder.CreateTube(
-            pTarget.id + ".line",
+          const name = uuid();
+          const seg = BABYLON.MeshBuilder.CreateTube(
+            name,
             { path: [pFrom, pTo], radius: 0.01, cap: BABYLON.Mesh.CAP_ALL },
             scene
           );
           seg.material = pTarget.material;
-          segs.push(seg);
+          segs[pTarget.name][name] = [pFrom, pTo];
         }
         pState = "idle";
         pTarget = null;
@@ -123,11 +135,16 @@ const usePreview = () => {
         }
       } else if (
         pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN &&
-        segs.includes(pointerInfo.pickInfo.pickedMesh)
+        pState === "idle" &&
+        pointerInfo.pickInfo.pickedMesh
       ) {
-        const index = segs.indexOf(pointerInfo.pickInfo.pickedMesh);
-        segs.splice(index, 1);
-        pointerInfo.pickInfo.pickedMesh.dispose();
+        const mesh = pointerInfo.pickInfo.pickedMesh;
+        [xy, zy].forEach((plane) => {
+          if (mesh.name in segs[plane.name]) {
+            delete segs[plane.name][mesh.name];
+            mesh.dispose();
+          }
+        });
       }
     });
 
