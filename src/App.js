@@ -9,9 +9,77 @@ const useBremner = () => {
     const v = vl.scale(1 / l);
     return { p, v, l };
   };
+
+  const cutYState = (pvl0, p0) => {
+    const l = (p0.y - pvl0.p.y) / pvl0.v.y;
+    if (l < 0) {
+      return "<";
+    } else if (l > pvl0.l) {
+      return ">";
+    } else {
+      return "=";
+    }
+  };
+
+  const cutXy = (pvl0, p0) => {
+    const l = (p0.y - pvl0.p.y) / pvl0.v.y;
+    const t0 = pvl0.p.add(pvl0.v.scale(l));
+    t0.z = p0.z;
+    return t0;
+  };
+
+  const cutZy = (pvl0, p0) => {
+    const l = (p0.y - pvl0.p.y) / pvl0.v.y;
+    const t0 = pvl0.p.add(pvl0.v.scale(l));
+    t0.x = p0.x;
+    return t0;
+  };
+
+  const mergeXyZy = (xy0, xy1, zy0_, zy1_) => {
+    const xy = pvl(xy0, xy1);
+    let [zy0, zy1] = [zy0_, zy1_];
+    let zy = pvl(zy0, zy1);
+
+    // we cannot deal with vectors with no y gradient (horizontal bars)
+    if (xy.v.y * zy.v.y === 0) {
+      return [null, null];
+    }
+
+    let sXz0 = cutYState(xy, zy0);
+    let sXz1 = cutYState(xy, zy1);
+
+    // switch zy points so they are always orders
+    if (sXz0 > sXz1) {
+      [sXz0, zy0, sXz1, zy1] = [sXz1, zy1, sXz0, zy0];
+    }
+    const stateX = sXz0 + sXz1;
+    zy = pvl(zy0, zy1);
+
+    if (["<<", ">>"].includes(stateX)) {
+      // the two bars missed
+      return [null, null];
+    } else if (["<>"].includes(stateX)) {
+      // z bar is longer
+      return [cutZy(zy, xy0), cutZy(zy, xy1)];
+    } else if (["=="].includes(stateX)) {
+      // x bar is longer
+      return [cutXy(xy, zy0), cutXy(xy, zy1)];
+    } else if (["<="].includes(stateX)) {
+      // overlap
+      return [cutXy(xy, zy1), cutZy(zy, xy0)];
+    } else if (["=>"].includes(stateX)) {
+      return [cutZy(zy, xy0), cutXy(xy, zy1)];
+    } else {
+      throw Error("bug");
+    }
+  };
+
+  return [mergeXyZy];
 };
 
 const usePreview = () => {
+  const [mergeXyZy] = useBremner();
+
   const init = (ref) => {
     const canvas = ref.current;
     const engine = new BABYLON.Engine(canvas, true);
@@ -86,7 +154,33 @@ const usePreview = () => {
     let pTarget = null;
     let pFrom = null;
     let pTo = null;
-    let segs = { [xy.name]: {}, [zy.name]: {} };
+    let merged = null;
+    const segs = { [xy.name]: {}, [zy.name]: {} };
+
+    const merge = () => {
+      const xyNames = Object.keys(segs[xy.name]);
+      const zyNames = Object.keys(segs[zy.name]);
+      if (xyNames.length && zyNames.length) {
+        const xyName = xyNames[0];
+        const zyName = zyNames[0];
+        const [xy0, xy1] = segs[xy.name][xyName];
+        const [zy0, zy1] = segs[zy.name][zyName];
+        // const [p0, p1] = mergeXyZy(xy0, xy1, zy0, zy1);
+        const [p0, p1] = mergeXyZy(xy0, xy1, zy0, zy1);
+        if (p0) {
+          if (merged) {
+            merged.dispose();
+          }
+          const name = uuid();
+          merged = BABYLON.MeshBuilder.CreateTube(
+            name,
+            { path: [p0, p1], radius: 0.01, cap: BABYLON.Mesh.CAP_ALL },
+            scene
+          );
+          merged.material = xz.material;
+        }
+      }
+    };
 
     scene.onPointerObservable.add((pointerInfo) => {
       if (
@@ -115,6 +209,7 @@ const usePreview = () => {
           );
           seg.material = pTarget.material;
           segs[pTarget.name][name] = [pFrom, pTo];
+          merge();
         }
         pState = "idle";
         pTarget = null;
