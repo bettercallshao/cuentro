@@ -1,4 +1,5 @@
 import * as BABYLON from "babylonjs";
+import * as GUI from "babylonjs-gui";
 import { useEffect, useRef } from "react";
 import { v4 as uuid } from "uuid";
 
@@ -154,6 +155,7 @@ const usePreview = () => {
     let pTarget = null;
     let pFrom = null;
     let pTo = null;
+    let button = null;
     const segs = { [xy.name]: {}, [zy.name]: {} };
     const merges = {};
 
@@ -241,6 +243,7 @@ const usePreview = () => {
       } else if (
         pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN &&
         pState === "idle" &&
+        button === "remove" &&
         pointerInfo.pickInfo.pickedMesh
       ) {
         const mesh = pointerInfo.pickInfo.pickedMesh;
@@ -252,6 +255,25 @@ const usePreview = () => {
           }
         });
       }
+    });
+
+    const ui = GUI.AdvancedDynamicTexture.CreateFullscreenUI();
+    const panel = new GUI.StackPanel();
+    panel.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
+    ui.addControl(panel);
+    const makeButton = (text, cb) => {
+      const b = GUI.Button.CreateSimpleButton(uuid(), text);
+      b.width = "100px";
+      b.height = "20px";
+      b.color = "white";
+      b.onPointerUpObservable.add(cb);
+      panel.addControl(b);
+    };
+    makeButton("remove", () => {
+      button = "remove";
+    });
+    makeButton("cancel", () => {
+      button = null;
     });
 
     engine.runRenderLoop(() => {
