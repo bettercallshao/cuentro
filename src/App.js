@@ -68,7 +68,7 @@ const useBremner = () => {
       // overlap
       return [cutXy(xy, zy1), cutZy(zy, xy0)];
     } else if (["=>"].includes(stateX)) {
-      return [cutZy(zy, xy0), cutXy(xy, zy1)];
+      return [cutZy(zy, xy1), cutXy(xy, zy0)];
     } else {
       throw Error("bug");
     }
@@ -154,30 +154,40 @@ const usePreview = () => {
     let pTarget = null;
     let pFrom = null;
     let pTo = null;
-    let merged = null;
     const segs = { [xy.name]: {}, [zy.name]: {} };
+    const merges = {};
 
     const merge = () => {
-      const xyNames = Object.keys(segs[xy.name]);
-      const zyNames = Object.keys(segs[zy.name]);
-      if (xyNames.length && zyNames.length) {
-        const xyName = xyNames[0];
-        const zyName = zyNames[0];
-        const [xy0, xy1] = segs[xy.name][xyName];
-        const [zy0, zy1] = segs[zy.name][zyName];
-        // const [p0, p1] = mergeXyZy(xy0, xy1, zy0, zy1);
-        const [p0, p1] = mergeXyZy(xy0, xy1, zy0, zy1);
-        if (p0) {
-          if (merged) {
-            merged.dispose();
+      const version = uuid();
+      for (const xyName in segs[xy.name]) {
+        for (const zyName in segs[zy.name]) {
+          const name = `${xyName}+${zyName}`;
+          if (merges[name]) {
+            merges[name].version = version;
+          } else {
+            merges[name] = { version };
+            const [xy0, xy1] = segs[xy.name][xyName];
+            const [zy0, zy1] = segs[zy.name][zyName];
+            const [p0, p1] = mergeXyZy(xy0, xy1, zy0, zy1);
+            if (p0) {
+              const mesh = BABYLON.MeshBuilder.CreateTube(
+                name,
+                { path: [p0, p1], radius: 0.01, cap: BABYLON.Mesh.CAP_ALL },
+                scene
+              );
+              mesh.material = xz.material;
+              merges[name].mesh = mesh;
+            }
           }
-          const name = uuid();
-          merged = BABYLON.MeshBuilder.CreateTube(
-            name,
-            { path: [p0, p1], radius: 0.01, cap: BABYLON.Mesh.CAP_ALL },
-            scene
-          );
-          merged.material = xz.material;
+        }
+      }
+      // remove stale meshes
+      for (const name in merges) {
+        if (merges[name].version !== version) {
+          if (merges[name].mesh) {
+            merges[name].mesh.dispose();
+          }
+          delete merges[name];
         }
       }
     };
@@ -238,6 +248,7 @@ const usePreview = () => {
           if (mesh.name in segs[plane.name]) {
             delete segs[plane.name][mesh.name];
             mesh.dispose();
+            merge();
           }
         });
       }
