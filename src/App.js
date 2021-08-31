@@ -201,9 +201,17 @@ const usePreview = () => {
         pState === "idle" &&
         [xy, zy].includes(pointerInfo.pickInfo.pickedMesh)
       ) {
+        if (
+          button === "sequence" &&
+          pTarget === pointerInfo.pickInfo.pickedMesh &&
+          pTo
+        ) {
+          pFrom = pTo;
+        } else {
+          pFrom = pointerInfo.pickInfo.pickedPoint;
+        }
         pState = "active";
         pTarget = pointerInfo.pickInfo.pickedMesh;
-        pFrom = pointerInfo.pickInfo.pickedPoint;
         pTo = null;
         setTimeout(function () {
           camera.detachControl(canvas);
@@ -224,7 +232,6 @@ const usePreview = () => {
           merge();
         }
         pState = "idle";
-        pTarget = null;
         camera.attachControl(canvas, true);
       } else if (
         pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE &&
@@ -269,6 +276,9 @@ const usePreview = () => {
       b.onPointerUpObservable.add(cb);
       panel.addControl(b);
     };
+    makeButton("sequence", () => {
+      button = "sequence";
+    });
     makeButton("remove", () => {
       button = "remove";
     });
