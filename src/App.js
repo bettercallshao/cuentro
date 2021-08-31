@@ -207,12 +207,13 @@ const usePreview = () => {
           pTo
         ) {
           pFrom = pTo;
+          pTo = pointerInfo.pickInfo.pickedPoint;
         } else {
           pFrom = pointerInfo.pickInfo.pickedPoint;
+          pTo = null;
         }
         pState = "active";
         pTarget = pointerInfo.pickInfo.pickedMesh;
-        pTo = null;
         setTimeout(function () {
           camera.detachControl(canvas);
         }, 0);
@@ -283,6 +284,10 @@ const usePreview = () => {
       button = "remove";
     });
     makeButton("cancel", () => {
+      pState = "idle";
+      pTarget = null;
+      pFrom = null;
+      pTo = null;
       button = null;
     });
 
