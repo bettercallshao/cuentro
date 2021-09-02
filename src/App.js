@@ -175,7 +175,7 @@ const usePreview = () => {
             if (p0) {
               const mesh = BABYLON.MeshBuilder.CreateTube(
                 name,
-                { path: [p0, p1], radius: 0.01, cap: BABYLON.Mesh.CAP_ALL },
+                { path: [p0, p1], radius: 0.01 },
                 scene
               );
               mesh.material = xz.material;
@@ -241,8 +241,15 @@ const usePreview = () => {
           }
         );
         if (pickInfo.hit) {
-          pTo = pickInfo.pickedPoint;
-          pPath.push(pTo);
+          if (
+            BABYLON.Vector3.Distance(
+              pickInfo.pickedPoint,
+              pPath[pPath.length - 1]
+            ) > 0.05
+          ) {
+            pTo = pickInfo.pickedPoint;
+            pPath.push(pTo);
+          }
         }
       } else if (
         pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN &&
