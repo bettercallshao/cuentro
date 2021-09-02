@@ -155,6 +155,7 @@ const usePreview = () => {
     let pTarget = null;
     let pFrom = null;
     let pTo = null;
+    let pPath = null;
     let button = null;
     const segs = { [xy.name]: {}, [zy.name]: {} };
     const merges = {};
@@ -201,19 +202,11 @@ const usePreview = () => {
         pState === "idle" &&
         [xy, zy].includes(pointerInfo.pickInfo.pickedMesh)
       ) {
-        if (
-          button === "sequence" &&
-          pTarget === pointerInfo.pickInfo.pickedMesh &&
-          pTo
-        ) {
-          pFrom = pTo;
-          pTo = pointerInfo.pickInfo.pickedPoint;
-        } else {
-          pFrom = pointerInfo.pickInfo.pickedPoint;
-          pTo = null;
-        }
         pState = "active";
         pTarget = pointerInfo.pickInfo.pickedMesh;
+        pFrom = pointerInfo.pickInfo.pickedPoint;
+        pTo = null;
+        pPath = [pFrom];
         setTimeout(function () {
           camera.detachControl(canvas);
         }, 0);
@@ -225,11 +218,13 @@ const usePreview = () => {
           const name = uuid();
           const seg = BABYLON.MeshBuilder.CreateTube(
             name,
-            { path: [pFrom, pTo], radius: 0.01, cap: BABYLON.Mesh.CAP_ALL },
+            { path: pPath, radius: 0.01, cap: BABYLON.Mesh.CAP_ALL },
             scene
           );
           seg.material = pTarget.material;
-          segs[pTarget.name][name] = [pFrom, pTo];
+          for (let i = 0; i < pPath.length - 1; i++) {
+            segs[pTarget.name][`${name}-${i}`] = [pPath[i], pPath[i + 1]];
+          }
           merge();
         }
         pState = "idle";
@@ -247,6 +242,7 @@ const usePreview = () => {
         );
         if (pickInfo.hit) {
           pTo = pickInfo.pickedPoint;
+          pPath.push(pTo);
         }
       } else if (
         pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN &&
@@ -256,8 +252,13 @@ const usePreview = () => {
       ) {
         const mesh = pointerInfo.pickInfo.pickedMesh;
         [xy, zy].forEach((plane) => {
-          if (mesh.name in segs[plane.name]) {
-            delete segs[plane.name][mesh.name];
+          let key = `${mesh.name}-0`;
+          if (key in segs[plane.name]) {
+            let i = 0;
+            do {
+              delete segs[plane.name][key];
+              key = `${mesh.name}-${++i}`;
+            } while (segs[plane.name][key]);
             mesh.dispose();
             merge();
           }
@@ -277,9 +278,6 @@ const usePreview = () => {
       b.onPointerUpObservable.add(cb);
       panel.addControl(b);
     };
-    makeButton("sequence", () => {
-      button = "sequence";
-    });
     makeButton("remove", () => {
       button = "remove";
     });
@@ -288,6 +286,7 @@ const usePreview = () => {
       pTarget = null;
       pFrom = null;
       pTo = null;
+      pPath = null;
       button = null;
     });
 
